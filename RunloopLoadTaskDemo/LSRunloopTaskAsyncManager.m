@@ -36,7 +36,7 @@
 }
 //执行任务先进先执行原则
 //设置任务Block，更新到队尾，剔除更新重复key的任务
-- (void)setTaskBlock:(void (^)(void))taskBlock forKey:(id)key;
+- (void)setTaskBlock:(void (^)(void))taskBlock forKey:(id)key executeLeave:(BOOL)executeLeave;
 //队首任务离开
 - (void)leaveTask;
 //执行一个任务，根据任务类型选择是否离队,结果返回队列是否为空
@@ -241,17 +241,27 @@
     if (!_observer) [self registerObserver];
 }
 
+////默认可以子线程默认执行的任务
 - (void)executeTasks {
     dispatch_async(_queue, ^{
         self->_canExecute = true;
-//        CFTimeInterval lastInterval = CACurrentMediaTime();
         while (self->_canExecute) {
-            
             if ([self->_taskMap executeBlock]) {
                 self->_canExecute = false;
                 [self removeObserver];
             }
-            
+        }
+    });
+}
+
+//在主线程执行任务时的操作逻辑
+//- (void)executeTasks {
+//    if (_canExecute) return;
+//
+//    dispatch_async(_queue, ^{
+//        self->_canExecute = true;
+//        CFTimeInterval lastInterval = CACurrentMediaTime();
+//        while (self->_canExecute) {
 //            dispatch_async(dispatch_get_main_queue(), ^{
 //                if ([self->_taskMap executeBlock]) {
 //                    self->_canExecute = false;
@@ -261,12 +271,13 @@
 //            });
 //            dispatch_semaphore_wait(self->_semaphore, DISPATCH_TIME_FOREVER);
 //            CFTimeInterval interval = CACurrentMediaTime();
-//            if (interval - lastInterval > 1) {
+//            if (interval - lastInterval > 0.1) {
 //                [NSThread sleepForTimeInterval:0.1];
+//                lastInterval = interval;
 //            }
-        }
-    });
-}
+//        }
+//    });
+//}
 
 void __runloopTaskExCallback(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info) {
     if (activity == kCFRunLoopBeforeWaiting) {
